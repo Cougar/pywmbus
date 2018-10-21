@@ -11,3 +11,7 @@ class WMBusChecksumError(BaseException):
 
 class WMBusDataLengthError(BaseException):
     """docstring for WMBusDataLengthError"""
+
+
+class WMBusFormatError(BaseException):
+    """docstring for WMBusTypeError"""

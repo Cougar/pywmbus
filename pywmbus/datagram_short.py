@@ -5,7 +5,7 @@ import crcmod
 from .datagram import Datagram
 from .datagram_field import DatagramField
 from .datagram_record import DataRecord
-from .exceptions import WMBusChecksumError, WMBusDataLengthError
+from .exceptions import WMBusChecksumError, WMBusDataLengthError, WMBusFormatError
 from .const import (
     ACC_FIELD, STATE_FIELD, CONF_FIELD
 )
@@ -78,7 +78,13 @@ class ShortDatagram(Datagram):
         self.data['_state_field'] = DatagramField(STATE_FIELD, data[14:15])
         self.data['_conf_field'] = DatagramField(CONF_FIELD, data[15:17])
 
-        self._new_data = sans_checksum(data)
+        if self.data['_format'] == 'A':
+          self._new_data = sans_checksum(data)
+        elif self.data['_format'] == 'B':
+          self._new_data = data[:-1]
+        else:
+          raise WMBusFormatError
+
 
         self.records = []
         remaining = self._new_data[14:]

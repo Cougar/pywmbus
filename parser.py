@@ -14,7 +14,7 @@ logging.basicConfig(
 _LOGGER = logging.getLogger(__name__)
 
 
-def parse(data):
+def parse(data, frameformat):
     """Parse wM-Bus Frame"""
     if data.startswith('b'):
         data = data[1:]
@@ -27,7 +27,7 @@ def parse(data):
         data = None
 
     if data:
-        telegram = pywmbus.parse(data)
+        telegram = pywmbus.parse(data, frameformat=frameformat)
         print("\nmanufacturer: {}".format(telegram.manufacturer))
         print("device id: {}".format(telegram.device_id))
         print("device version: {}".format(telegram.device_version))
@@ -55,6 +55,8 @@ def main():
         '-s', '--serial', type=str, help='Path to serial device')
     parser.add_argument(
         '-b', '--baud', default=9600, type=int, help='Baudrate')
+    parser.add_argument(
+        '-l', '--lansen', action='store_true', help='Lansen data')
 
     # parse arguments
     args, unknown = parser.parse_known_args()
@@ -63,6 +65,10 @@ def main():
         enable_debug(args.debug)
 
     _LOGGER.debug("args: " + str(args) + " unknown: " + str(unknown))
+
+    frameformat = 'A'
+    if args.lansen:
+        frameformat = 'B'
 
     if args.serial:
         device = CulStick(args.serial, args.baud)
@@ -73,7 +79,16 @@ def main():
             time.sleep(1)
     elif args.raw:
         for raw in args.raw:
-            parse(raw)
+            if args.lansen:
+                if raw[0:2] != '7e':
+                    _LOGGER.error("Not Lansen protocol")
+                    continue
+                if raw[2:4] != '06':
+                    _LOGGER.error("Not Lansen protocol")
+                    continue
+                # TODO - check len
+                raw = raw[6:]
+            parse(raw, frameformat=frameformat)
     else:
         parser.print_usage()
 

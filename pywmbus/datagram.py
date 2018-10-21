@@ -3,7 +3,7 @@
 import json
 import logging
 import crcmod
-from .exceptions import WMBusChecksumError
+from .exceptions import WMBusChecksumError, WMBusFormatError
 from .datagram_field import DatagramField
 from .const import (
     A_FIELD, C_FIELD, CI_FIELD, CRC_FIELD, L_FIELD, M_FIELD, ID_FIELD
@@ -21,6 +21,7 @@ class Datagram(object):
         self._data = {
             '_crc': []
         }
+        self.data['_format'] = kwargs.get('frameformat', 'A')
 
         self.data['_l_field'] = DatagramField(L_FIELD, data[0])
         self.data['_c_field'] = DatagramField(C_FIELD, data[1])
@@ -28,17 +29,29 @@ class Datagram(object):
         self.data['_a_field_id'] = DatagramField(ID_FIELD, data[4:8])
         self.data['_a_field_version'] = DatagramField(A_FIELD, data[8:9])
         self.data['_a_field_type'] = DatagramField(A_FIELD, data[9:10])
-        self.data['_crc'].append(DatagramField(CRC_FIELD, data[10:12]))
 
-        if self.data['_c_field'].field_value == 0xc4:
-            # Data in between 12:32 is still unknown
-            _LOGGER.info("This type of Datagram is experimental")
-            self.data['_ci_field'] = DatagramField(CI_FIELD, data[32:33])
+        if self.data['_format'] == 'A':
+            self.data['_crc'].append(DatagramField(CRC_FIELD, data[10:12]))
+
+            if self.data['_c_field'].field_value == 0xc4:
+                # Data in between 12:32 is still unknown
+                _LOGGER.info("This type of Datagram is experimental")
+                self.data['_ci_field'] = DatagramField(CI_FIELD, data[32:33])
+            else:
+                self.data['_ci_field'] = DatagramField(CI_FIELD, data[12:13])
+
+            if self.data['_crc'][0].field_value != _CRC_16(data[0:10]):
+                raise WMBusChecksumError("Checksum mismatch")
+
+            return
+
+        elif self.data['_format'] == 'B':
+            self.data['_crc'].append(DatagramField(CRC_FIELD, data[-2:]))
+            if self.data['_crc'][0].field_value != _CRC_16(data[:-2]):
+                raise WMBusChecksumError("Checksum mismatch")
+            self.data['_ci_field'] = DatagramField(CI_FIELD, data[10:11])
         else:
-            self.data['_ci_field'] = DatagramField(CI_FIELD, data[12:13])
-
-        if self.data['_crc'][0].field_value != _CRC_16(data[0:10]):
-            raise WMBusChecksumError("Checksum 0 mismatch")
+            raise WMBusFormatError
 
     @staticmethod
     def parse(data):
