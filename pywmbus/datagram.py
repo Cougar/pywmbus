@@ -48,7 +48,8 @@ class Datagram(object):
         elif self.data['_format'] == 'B':
             self.data['_crc'].append(DatagramField(CRC_FIELD, data[-2:]))
             if self.data['_crc'][0].field_value != _CRC_16(data[:-2]):
-                raise WMBusChecksumError("Checksum mismatch")
+                pass
+#               raise WMBusChecksumError("Checksum mismatch")
             self.data['_ci_field'] = DatagramField(CI_FIELD, data[10:11])
         else:
             raise WMBusFormatError
